@@ -2,9 +2,13 @@ import os
 import time
 from datetime import datetime
 from plyer import notification
+from win10toast import ToastNotifier
+
+notifier = ToastNotifier()
+notifier.app_id = "MyUniqueAppId.GlissandoMonitor"
 
 
-FOLDER_TO_WATCH = r"C:/Users/PC/Desktop/digital_pathology/Glissando_20sl_monitor"  # Change this to your folder path
+FOLDER_TO_WATCH = os.path.abspath(r"C:/Users/PC/Desktop/digital_pathology/Glissando_20sl_monitor")  # Change this to your folder path
 CHECK_INTERVAL = 30  # Check every 10 seconds
 MAX_TMP_AGE = 6 * 60  # 6 minutes in seconds
 NO_TMP_TIMEOUT = 5 * 60  # 5 minutes in seconds
@@ -22,19 +26,32 @@ def get_tmp_files():
 def get_svs_files():
     return {os.path.splitext(f)[0] for f in os.listdir(FOLDER_TO_WATCH) if f.endswith('.svs')}  
 
+# def notify(title, message):
+   # print(f"[{datetime.now()}] {message}")
+    #notification.notify(
+     #   title=title,
+      #  message=message,
+       # app_name="WSI Monitor",
+        #timeout=10
+   # )
+    
 def notify(title, message):
     print(f"[{datetime.now()}] {message}")
-    notification.notify(
+    notifier.show_toast(
         title=title,
-        message=message,
-        app_name="WSI Monitor",
-        timeout=10
+        msg=message,
+        duration=10,
+        icon_path=None,  # You can specify an icon path if needed
+        threaded=True
     )
 
 def main():
     global last_tmp_seen_time, scan_in_progress
     
     print("Starting Glissando 20SL Monitor...")
+    
+    time.sleep(1)
+    notify("Glissando 20SL", "Glissando 20SL Monitor is now active.")
     
     while True:
         try:
@@ -45,19 +62,19 @@ def main():
             
             # Notify if idle and not already notified
             if not current_tmp_files and not scan_in_progress:
-                notify("Device status - Idle", "No slides are being scanned.")
+                notify("Glissando 20SL", "Device status - Idle.")
             
             # Check for new .tmp files
             if not scan_in_progress and current_tmp_files:
                 scan_in_progress = True
                 notified_idle = False
-                notify("Scan Started", "WSI scanning has started.")
+                notify("Glissando 20SL", "WSI scanning has started.")
                 
             # Track new .tmp files with timestamps
             for tmp_file in current_tmp_files:
                 if tmp_file not in tmp_file_times:
                     tmp_file_times[tmp_file] = now
-                    notify("Slide Scanning", f"Scanning started for slide: {tmp_file}.tmp")
+                    notify("Glissando 20SL", f"Scanning started for slide: {tmp_file}.tmp")
                     
                     
                 # Track active scans by basename without extension
@@ -75,14 +92,14 @@ def main():
             for tmp_file, first_seen in list(tmp_file_times.items()):
                 age = now - first_seen
                 if age > MAX_TMP_AGE:
-                    notify("Scan Error",
+                    notify("Glissando 20SL",
                            f"Slide '{tmp_file}' .tmp file exists for over {MAX_TMP_AGE // 60} minutes. Possible stall")
                     tmp_file_times.pop(tmp_file)
                     
             # Check completed scans (.svs files)
             for active_scan in list(active_scans):          
                 if active_scan in svs_files:
-                    notify("Slide WSI Saved", f"Slide Saved: {active_scan}.svs")
+                    notify("Glissando 20SL", f"Slide Saved: {active_scan}.svs")
                     active_scans.remove(active_scan)
                     completed_scans.add(active_scan)
                     
@@ -92,7 +109,7 @@ def main():
             
             # Check if scan run completed (no. tmp files for NO_TMP_TIMEOUT and scan was active)
             if scan_in_progress and last_tmp_seen_time and (now - last_tmp_seen_time) > NO_TMP_TIMEOUT:
-                notify("Batch Scan Complete", f"All files scanned and device in idle state.")
+                notify("Glissando 20SL", f"All files scanned and device in idle state.")
                 scan_in_progress = False
                 active_scans.clear()
                 completed_scans.clear()
